@@ -3,6 +3,6 @@ services:
 	  name: broadway-api
 	  env: python
 	  plan: free
-	  builtCommand: pip install -r requirements.txt
+	  buildCommand: pip install -r requirements.txt
 	  startCommand: gunicorn main:app
 	  
