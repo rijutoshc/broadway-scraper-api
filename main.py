@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import traceback
+import os
 
 app = Flask(__name__)
 
@@ -22,9 +23,16 @@ def get_address():
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.binary_location = "/usr/bin/chromium"
+
+    # Check if Chromium is installed at the expected path on Render
+    chromium_path = "/usr/bin/chromium"  # Default path on Render
+    if not os.path.exists(chromium_path):
+        return jsonify({"error": "Chromium binary not found at the expected location"}), 500
+
+    options.binary_location = chromium_path
 
     try:
+        # Use the dynamically managed ChromeDriver
         driver = webdriver.Chrome(
             service=Service(ChromeDriverManager().install()),
             options=options
