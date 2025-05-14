@@ -18,11 +18,12 @@ def get_address():
         return jsonify({"error": "Missing 'show' query parameter"}), 400
 
     options = Options()
+    options.binary_location="/usr/bin/chromium"
     options.add_argument("--headless")
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    options.binary_location="/usr/bin/chromium"
 
+try:
     driver = webdriver.Chrome(
 service=Service(ChromeDriverManager().install()),
  options=options
@@ -30,7 +31,6 @@ service=Service(ChromeDriverManager().install()),
     url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
     driver.get(url)
 
-    try:
         venue_element = driver.find_element(By.XPATH, '//*[@id="venue"]/a')
         venue_link = venue_element.get_attribute('href')
 
@@ -41,10 +41,6 @@ service=Service(ChromeDriverManager().install()),
         else:
             x_coord, y_coord = None, None
 
-    except Exception as e:
-        driver.quit()
-        return jsonify({"error": str(e)}), 500
-
     driver.quit()
 
     return jsonify({
@@ -54,12 +50,12 @@ service=Service(ChromeDriverManager().install()),
         "y_coord": y_coord.strip() if y_coord else None
     })
 
-if __name__ == "__main__":  # FIXED: __name__ and __main__, not _name_ or _main_
-    app.run(debug=True)
     except Exception as e:
         import traceback
         error_msg = traceback.format_exc()
         print(error_msg)  # Log to Render console
         driver.quit()
         return jsonify({"error": str(e), "details": error_msg}), 500
+if __name__ == "__main__":  # FIXED: __name__ and __main__, not _name_ or _main_
+ app.run(debug=True)
 
