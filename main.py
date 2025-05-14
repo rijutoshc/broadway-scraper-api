@@ -36,10 +36,11 @@ def get_address():
 
     try:
         # Use the dynamically managed ChromeDriver
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=options
-        )
+       driver = webdriver.Chrome(
+    service=Service("/usr/bin/chromedriver"),
+    options=options
+)
+
 
         url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
         driver.get(url)
