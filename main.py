@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -21,6 +21,7 @@ def get_address():
     options.add_argument("--headless")
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
+    options.binary_location="/usr/bin/google-chrome"
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
