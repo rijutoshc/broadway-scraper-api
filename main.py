@@ -23,23 +23,23 @@ def get_address():
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
 
-try:
+ try:
     driver = webdriver.Chrome(
-service=Service(ChromeDriverManager().install()),
- options=options
-)
+	service=Service(ChromeDriverManager().install()),
+ 	options=options
+    )
     url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
     driver.get(url)
 
-        venue_element = driver.find_element(By.XPATH, '//*[@id="venue"]/a')
-        venue_link = venue_element.get_attribute('href')
+    venue_element = driver.find_element(By.XPATH, '//*[@id="venue"]/a')
+    venue_link = venue_element.get_attribute('href')
 
         # Extract coordinates from the href (after the '@' in the URL)
-        if '@' in venue_link:
-            coordinates = venue_link.split('@')[-1]
-            x_coord, y_coord = coordinates.split(',')[:2]
-        else:
-            x_coord, y_coord = None, None
+    if '@' in venue_link:
+        coordinates = venue_link.split('@')[-1]
+        x_coord, y_coord = coordinates.split(',')[:2]
+    else:
+        x_coord, y_coord = None, None
 
     driver.quit()
 
@@ -50,12 +50,12 @@ service=Service(ChromeDriverManager().install()),
         "y_coord": y_coord.strip() if y_coord else None
     })
 
-    except Exception as e:
-        import traceback
-        error_msg = traceback.format_exc()
-        print(error_msg)  # Log to Render console
-        driver.quit()
-        return jsonify({"error": str(e), "details": error_msg}), 500
+ except Exception as e:
+     import traceback
+     error_msg = traceback.format_exc()
+     print(error_msg)  # Log to Render console
+     driver.quit()
+     return jsonify({"error": str(e), "details": error_msg}), 500
 if __name__ == "__main__":  # FIXED: __name__ and __main__, not _name_ or _main_
- app.run(debug=True)
+ 	app.run(debug=True)
 
