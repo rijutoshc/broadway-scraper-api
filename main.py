@@ -56,4 +56,10 @@ service=Service(ChromeDriverManager().install()),
 
 if __name__ == "__main__":  # FIXED: __name__ and __main__, not _name_ or _main_
     app.run(debug=True)
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        print(error_msg)  # Log to Render console
+        driver.quit()
+        return jsonify({"error": str(e), "details": error_msg}), 500
 
