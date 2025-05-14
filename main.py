@@ -24,15 +24,7 @@ def get_address():
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-
-    # Dynamically find the Chromium binary location
-    chromium_path = subprocess.getoutput("which chromium")  # Search for Chromium binary path
-    if not chromium_path:
-        chromium_path = subprocess.getoutput("which chromium-browser")  # Search for chromium-browser path
-    if not chromium_path:
-        return jsonify({"error": "Chromium binary not found on the system"}), 500
-
-    options.binary_location = chromium_path
+    options.binary_location = "/usr/bin/chromium"
 
     try:
         # Use the dynamically managed ChromeDriver
@@ -40,6 +32,7 @@ def get_address():
     service=Service("/usr/bin/chromedriver"),
     options=options
 )
+
 
 
         url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
