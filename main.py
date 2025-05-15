@@ -20,7 +20,7 @@ def get_address():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto(url, timeout=15000)
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
             # Wait for the venue section to load
             page.wait_for_selector('a[href*="maps.google.com"]', timeout=10000)
