@@ -31,9 +31,13 @@ def get_address():
 
         url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
         driver.get(url)
-
+    try:
         venue_element = driver.find_element(By.XPATH, '//*[@id="venue"]/a')
         venue_link = venue_element.get_attribute('href')
+    except Exception:
+        venue_link = None
+        x_coord = y_coord = None
+
 
         if '@' in venue_link:
             coordinates = venue_link.split('@')[-1]
@@ -52,7 +56,7 @@ def get_address():
 
     except Exception as e:
         error_msg = traceback.format_exc()
-        print(error_msg)
+        print("ERROR:", error_msg)
         return jsonify({"error": str(e), "trace": error_msg}), 500
 
 if __name__ == '__main__':
