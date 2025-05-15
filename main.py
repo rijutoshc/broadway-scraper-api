@@ -3,10 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 import traceback
-import os
-import subprocess
 
 app = Flask(__name__)
 
@@ -27,13 +24,10 @@ def get_address():
     options.binary_location = "/usr/bin/chromium"
 
     try:
-        # Use the dynamically managed ChromeDriver
-       driver = webdriver.Chrome(
-    service=Service("/usr/bin/chromedriver"),
-    options=options
-)
-
-
+        driver = webdriver.Chrome(
+            service=Service("/usr/bin/chromedriver"),
+            options=options
+        )
 
         url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
         driver.get(url)
