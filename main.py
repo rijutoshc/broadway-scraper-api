@@ -1,9 +1,6 @@
 from flask import Flask, request, jsonify
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import traceback
+import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
@@ -17,35 +14,26 @@ def get_address():
     if not show_name:
         return jsonify({"error": "Missing 'show' query parameter"}), 400
 
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.binary_location = "/usr/bin/chromium"
-
     try:
-        driver = webdriver.Chrome(
-            service=Service("/usr/bin/chromedriver"),
-            options=options
-        )
+        slug = show_name.lower().replace(' ', '-')
+        url = f"https://www.broadwayinbound.com/shows/{slug}"
+        response = requests.get(url, timeout=10)
 
-        url = f"https://www.broadwayinbound.com/shows/{show_name.lower().replace(' ', '-')}"
-        driver.get(url)
-    try:
-        venue_element = driver.find_element(By.XPATH, '//*[@id="venue"]/a')
-        venue_link = venue_element.get_attribute('href')
-    except Exception:
-        venue_link = None
-        x_coord = y_coord = None
+        if response.status_code != 200:
+            return jsonify({"error": f"Failed to fetch page. Status code: {response.status_code}"}), 502
 
+        soup = BeautifulSoup(response.text, 'html.parser')
+        venue_link_tag = soup.select_one('#venue a')
 
+        if not venue_link_tag:
+            return jsonify({"error": "Venue link not found"}), 404
+
+        venue_link = venue_link_tag.get('href')
         if '@' in venue_link:
-            coordinates = venue_link.split('@')[-1]
-            x_coord, y_coord = coordinates.split(',')[:2]
+            coords = venue_link.split('@')[-1]
+            x_coord, y_coord = coords.split(',')[:2]
         else:
-            x_coord, y_coord = None, None
-
-        driver.quit()
+            x_coord = y_coord = None
 
         return jsonify({
             "show": show_name,
@@ -55,9 +43,4 @@ def get_address():
         })
 
     except Exception as e:
-        error_msg = traceback.format_exc()
-        print("ERROR:", error_msg)
-        return jsonify({"error": str(e), "trace": error_msg}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        return jsonify({"error": str(e)}), 500
