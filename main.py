@@ -78,7 +78,7 @@ def get_address():
             try:
                 new_page = browser.new_page()
                 new_page.goto(venue_link, timeout=15000, wait_until="domcontentloaded")
-                new_page.wait_for_timeout(3000)  # wait 3 seconds
+                new_page.wait_for_timeout(5000)  # wait 5 seconds
 
                 final_url = new_page.url
                 if '@' in final_url:
