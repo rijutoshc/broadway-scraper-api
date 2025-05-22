@@ -19,7 +19,7 @@ def get_address():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--no-sandbox"])
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
@@ -63,7 +63,7 @@ def get_address():
             try:
                 new_page = browser.new_page()
                 new_page.goto(venue_link, timeout=15000, wait_until="domcontentloaded")
-                new_page.wait_for_timeout(7000)  # wait 7 seconds
+                new_page.wait_for_timeout(3000)  # wait 3 seconds
 
                 final_url = new_page.url
                 if '@' in final_url:
