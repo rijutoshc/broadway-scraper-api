@@ -47,15 +47,30 @@ def get_address():
             x_coord = None
             y_coord = None
 
-            # === US address parsing ===
+            # === Improved address parser ===
             if raw_address:
                 parts = raw_address.replace(',', '').split()
+
                 try:
                     if len(parts) >= 5:
-                        address_line_1 = ' '.join(parts[:-3])
-                        city = parts[-3]
-                        state = parts[-2]
+                        # Assume last two parts are state and pincode
                         pincode = parts[-1]
+                        state = parts[-2]
+
+                        # Detect 2-word city names like "New York"
+                        possible_city_parts = parts[-4:-2]
+                        if (
+                            len(possible_city_parts) == 2 and 
+                            possible_city_parts[0][0].isupper() and 
+                            possible_city_parts[1][0].isupper()
+                        ):
+                            city = ' '.join(possible_city_parts)
+                            address_line_1 = ' '.join(parts[:-4])
+                        else:
+                            city = parts[-3]
+                            address_line_1 = ' '.join(parts[:-3])
+                    else:
+                        address_line_1 = raw_address
                 except Exception:
                     address_line_1 = raw_address
 
