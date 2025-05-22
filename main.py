@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from playwright.sync_api import sync_playwright
+from urllib.parse import unquote, urlparse, parse_qs
 
 app = Flask(__name__)
 
@@ -21,30 +22,29 @@ def get_address():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
-            print(page.content())
 
             # Wait for the venue section to load
             page.wait_for_selector('a[href*="maps.google.com"]', timeout=10000)
             link = page.query_selector('a[href*="maps.google.com"]')
 
             if not link:
+                browser.close()
                 return jsonify({"error": "Venue link not found"}), 404
 
             venue_link = link.get_attribute('href')
 
-            if '@' in venue_link:
-                coords = venue_link.split('@')[-1]
-                x_coord, y_coord = coords.split(',')[:2]
-            else:
-                x_coord = y_coord = None
+            parsed_url = urlparse(venue_link)
+            query = parse_qs(parsed_url.query)
+            address = query.get('q', [None])[0]  # Extract street address from ?q=
 
             browser.close()
 
             return jsonify({
                 "show": show_name,
                 "venue_link": venue_link,
-                "x_coord": x_coord.strip() if x_coord else None,
-                "y_coord": y_coord.strip() if y_coord else None
+                "address": address,
+                "x_coord": None,
+                "y_coord": None
             })
 
     except Exception as e:
