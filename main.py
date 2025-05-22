@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from playwright.sync_api import sync_playwright
-from urllib.parse import unquote, urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs
 
 app = Flask(__name__)
 
@@ -23,7 +23,7 @@ def get_address():
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-            # Wait for the venue section to load
+            # Locate venue link
             page.wait_for_selector('a[href*="maps.google.com"]', timeout=10000)
             link = page.query_selector('a[href*="maps.google.com"]')
 
@@ -33,18 +33,61 @@ def get_address():
 
             venue_link = link.get_attribute('href')
 
+            # Extract address from ?q= in URL
             parsed_url = urlparse(venue_link)
             query = parse_qs(parsed_url.query)
-            address = query.get('q', [None])[0]  # Extract street address from ?q=
+            raw_address = query.get('q', [None])[0]
+
+            # Default values
+            address_line_1 = ''
+            address_line_2 = ''
+            city = None
+            state = None
+            pincode = None
+            x_coord = None
+            y_coord = None
+
+            # === US address parsing ===
+            if raw_address:
+                parts = raw_address.replace(',', '').split()
+                try:
+                    if len(parts) >= 5:
+                        address_line_1 = ' '.join(parts[:-3])
+                        city = parts[-3]
+                        state = parts[-2]
+                        pincode = parts[-1]
+                except Exception:
+                    address_line_1 = raw_address
+
+            # === Open Google Maps URL in a new tab and fetch coordinates ===
+            try:
+                new_page = browser.new_page()
+                new_page.goto(venue_link, timeout=15000, wait_until="domcontentloaded")
+                new_page.wait_for_timeout(7000)  # wait 7 seconds
+
+                final_url = new_page.url
+                if '@' in final_url:
+                    coords = final_url.split('@')[-1].split(',')[:2]
+                    x_coord, y_coord = coords[0].strip(), coords[1].strip()
+
+                new_page.close()
+            except Exception:
+                pass  # skip errors silently
 
             browser.close()
 
             return jsonify({
                 "show": show_name,
                 "venue_link": venue_link,
-                "address": address,
-                "x_coord": None,
-                "y_coord": None
+                "address": {
+                    "address_line_1": address_line_1,
+                    "address_line_2": address_line_2,
+                    "city": city,
+                    "state": state,
+                    "pincode": pincode
+                },
+                "x_coord": x_coord,
+                "y_coord": y_coord
             })
 
     except Exception as e:
