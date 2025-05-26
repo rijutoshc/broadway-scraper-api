@@ -64,10 +64,11 @@ def get_address():
             # === Open Google Maps in new tab and extract coordinates ===
             try:
                 new_page = browser.new_page()
-                new_page.goto(venue_link, timeout=15000, wait_until="domcontentloaded")
-                new_page.wait_for_timeout(5000)  # wait for map to load
-
+                new_page.goto(venue_link, timeout=15000, wait_until="load")
+                new_page.wait_for_timeout(8000)
+                
                 final_url = new_page.url
+                print("Final map URL:", final_url)
                 if '@' in final_url:
                     coords = final_url.split('@')[-1].split(',')[:2]
                     x_coord = coords[0].strip()
