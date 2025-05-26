@@ -24,14 +24,14 @@ def get_address():
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
             # Locate venue link
-            page.wait_for_selector('a[href*="maps.google.com"]', timeout=10000)
+            page.wait_for_timeout(2000)
             link = page.query_selector('a[href*="maps.google.com"]')
+            venue_link = link.get_attribute('href') if link else None
 
-            if not link:
+            if not venue_link:
                 browser.close()
                 return jsonify({"error": "Venue link not found"}), 404
 
-            venue_link = link.get_attribute('href')
 
             # Extract address from ?q= in URL
             parsed_url = urlparse(venue_link)
