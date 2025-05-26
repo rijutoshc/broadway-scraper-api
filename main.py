@@ -2,12 +2,17 @@ from flask import Flask, request, jsonify
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse, parse_qs
 import re
+import requests
+import os
+
+# Set your Google API Key here or as an environment variable
+GOOGLE_API_KEY = os.environ.get("GOOGLE_GEOCODING_API_KEY", "AIzaSyChZE0eDh14KYRXlZmWK3cXSbo94iW88-o")
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Broadway Scraper API with Playwright is live!"
+    return "Broadway Scraper API with Playwright + Geocoding is live!"
 
 @app.route('/get_address')
 def get_address():
@@ -24,11 +29,11 @@ def get_address():
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-            # Extract theatre name
-            theatre_element = page.query_selector('#venue strong')
-            theatre_name = theatre_element.inner_text().strip() if theatre_element else None
+            # Extract venue name
+            theatre_element = page.query_selector('#venue a')
+            theatre_name = theatre_element.inner_text().strip() if theatre_element else ""
 
-            # Locate Google Maps link
+            # Extract Google Maps link
             link = page.query_selector('a[href*="maps.google.com"]')
             venue_link = link.get_attribute('href') if link else None
 
@@ -36,13 +41,13 @@ def get_address():
                 browser.close()
                 return jsonify({"error": "Venue link not found"}), 404
 
-            # Parse raw address from the URL
+            # Extract raw address from GMaps link
             parsed_url = urlparse(venue_link)
             query = parse_qs(parsed_url.query)
             raw_address = query.get('q', [None])[0]
 
-            # Initialize output fields
-            address_line_1 = theatre_name or ""
+            # Default values
+            address_line_1 = theatre_name
             address_line_2 = ''
             city = None
             state = None
@@ -51,32 +56,27 @@ def get_address():
             y_coord = None
 
             if raw_address:
-                # Use regex to extract address components
+                # Regex pattern: e.g., "200 West 45 Street New York,NY 10036"
                 match = re.match(r"(.+?)\s+([A-Za-z\s]+),([A-Z]{2})\s+(\d{5})", raw_address)
                 if match:
-                    address_line_2 = match.group(1).strip()
-                    city = match.group(2).strip()
-                    state = match.group(3).strip()
-                    pincode = match.group(4).strip()
+                    address_line_2 = match.group(1).strip()         # e.g. 200 West 45 Street
+                    city = match.group(2).strip()                   # e.g. New York
+                    state = match.group(3).strip()                  # e.g. NY
+                    pincode = match.group(4).strip()                # e.g. 10036
                 else:
                     address_line_2 = raw_address
 
-            # === Open Google Maps in new tab and extract coordinates ===
-            try:
-                new_page = browser.new_page()
-                new_page.goto(venue_link, timeout=15000, wait_until="load")
-                new_page.wait_for_timeout(8000)
-                
-                final_url = new_page.url
-                print("Final map URL:", final_url)
-                if '@' in final_url:
-                    coords = final_url.split('@')[-1].split(',')[:2]
-                    x_coord = coords[0].strip()
-                    y_coord = coords[1].strip()
-
-                new_page.close()
-            except Exception:
-                pass  # ignore map failures
+                # === Geocoding API to fetch coordinates ===
+                geocode_url = (
+                    f"https://maps.googleapis.com/maps/api/geocode/json?address={raw_address}&key={GOOGLE_API_KEY}"
+                )
+                response = requests.get(geocode_url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("results"):
+                        location = data["results"][0]["geometry"]["location"]
+                        x_coord = location.get("lat")
+                        y_coord = location.get("lng")
 
             browser.close()
 
