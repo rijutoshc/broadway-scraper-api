@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse, parse_qs
-import re
 import requests
 import os
 
-GOOGLE_API_KEY = os.environ.get("GOOGLE_GEOCODING_API_KEY", "AIzaSyChZE0eDh14KYRXlZmWK3cXSbo94iW88-o")
+# Set your Google Maps Geocoding API Key in Render's environment variable
+GOOGLE_API_KEY = os.environ.get("GOOGLE_GEOCODING_API_KEY", "YOUR_API_KEY_HERE")
 
 app = Flask(__name__)
 
@@ -28,11 +28,12 @@ def get_address():
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-            # Extract theatre name
+            # Extract theatre name from #venue
             theatre_el = page.query_selector('#venue strong') or page.query_selector('#venue a')
             theatre_name = theatre_el.inner_text().strip() if theatre_el else ""
+            print("Theatre Name:", theatre_name)
 
-            # Extract GMaps link
+            # Extract Google Maps link
             link = page.query_selector('a[href*="maps.google.com"]')
             venue_link = link.get_attribute('href') if link else None
 
@@ -40,12 +41,13 @@ def get_address():
                 browser.close()
                 return jsonify({"error": "Venue link not found"}), 404
 
-            # Extract raw address
+            # Parse raw address from Google Maps link
             parsed_url = urlparse(venue_link)
             query = parse_qs(parsed_url.query)
             raw_address = query.get('q', [None])[0]
+            print("Raw address:", raw_address)
 
-            # Initialize fields
+            # Initialize output fields
             address_line_1 = theatre_name
             address_line_2 = ''
             city = None
@@ -55,18 +57,20 @@ def get_address():
             y_coord = None
 
             if raw_address:
-                print("Raw address:", raw_address)
-                # Regex pattern to match "200 West 45 Street New York, NY 10036"
-                match = re.match(r"(.+?)\s+([A-Za-z\s]+),\s*([A-Z]{2})\s+(\d{5})", raw_address)
-                if match:
-                    address_line_2 = match.group(1).strip()
-                    city = match.group(2).strip()
-                    state = match.group(3).strip()
-                    pincode = match.group(4).strip()
+                # Remove commas and split
+                clean_address = raw_address.replace(',', '')
+                parts = clean_address.split()
+
+                if len(parts) >= 5:
+                    # Assume last 3 parts = city (1–2 words), state, pincode
+                    pincode = parts[-1]
+                    state = parts[-2]
+                    city = ' '.join(parts[-4:-2])
+                    address_line_2 = ' '.join(parts[:-4])
                 else:
                     address_line_2 = raw_address
 
-                # Call Geocoding API
+                # Call Google Geocoding API
                 geocode_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={raw_address}&key={GOOGLE_API_KEY}"
                 print("Geocode URL:", geocode_url)
                 try:
@@ -76,6 +80,7 @@ def get_address():
                         location = data["results"][0]["geometry"]["location"]
                         x_coord = location.get("lat")
                         y_coord = location.get("lng")
+                        print("Coordinates:", x_coord, y_coord)
                     else:
                         print("Geocoding failed:", data.get("status"))
                 except Exception as e:
