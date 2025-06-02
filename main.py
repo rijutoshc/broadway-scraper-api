@@ -1,17 +1,12 @@
 from flask import Flask, request, jsonify
 from playwright.sync_api import sync_playwright
-from urllib.parse import urlparse, parse_qs
-import requests
-import os
-
-# Set your Google Maps Geocoding API Key in Render's environment variable
-GOOGLE_API_KEY = os.environ.get("GOOGLE_GEOCODING_API_KEY", "YOUR_API_KEY_HERE")
+import re
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Broadway Scraper API with Playwright + Geocoding is live!"
+    return "Broadway Scraper Address Extractor is live!"
 
 @app.route('/get_address')
 def get_address():
@@ -24,84 +19,47 @@ def get_address():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--no-sandbox"])
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-            # Extract theatre name from #venue
-            theatre_el = page.query_selector('#venue strong') or page.query_selector('#venue a')
-            theatre_name = theatre_el.inner_text().strip() if theatre_el else ""
-            print("Theatre Name:", theatre_name)
-
-            # Extract Google Maps link
-            link = page.query_selector('a[href*="maps.google.com"]')
-            venue_link = link.get_attribute('href') if link else None
-
-            if not venue_link:
+            # Extract the full address block text from #venue
+            venue_el = page.query_selector('#venue')
+            if not venue_el:
                 browser.close()
-                return jsonify({"error": "Venue link not found"}), 404
+                return jsonify({"error": "Venue block not found"}), 404
 
-            # Parse raw address from Google Maps link
-            parsed_url = urlparse(venue_link)
-            query = parse_qs(parsed_url.query)
-            raw_address = query.get('q', [None])[0]
-            print("Raw address:", raw_address)
+            venue_text = venue_el.inner_text().strip()
+            lines = [line.strip() for line in venue_text.split('\n') if line.strip()]
 
-            # Initialize output fields
-            address_line_1 = theatre_name
-            address_line_2 = ''
-            city = None
-            state = None
-            pincode = None
-            x_coord = None
-            y_coord = None
+            # Expecting at least 3 lines
+            if len(lines) < 3:
+                browser.close()
+                return jsonify({"error": "Incomplete address format"}), 500
 
-            if raw_address:
-                # Remove commas and split
-                clean_address = raw_address.replace(',', '')
-                parts = clean_address.split()
+            address_line_1 = lines[0]  # Theatre name
+            address_line_2 = lines[1]  # Street
+            city = state = pincode = None
 
-                if len(parts) >= 5:
-                    # Assume last 3 parts = city (1–2 words), state, pincode
-                    pincode = parts[-1]
-                    state = parts[-2]
-                    city = ' '.join(parts[-4:-2])
-                    address_line_2 = ' '.join(parts[:-4])
-                else:
-                    address_line_2 = raw_address
-
-                # Call Google Geocoding API
-                geocode_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={raw_address}&key={GOOGLE_API_KEY}"
-                print("Geocode URL:", geocode_url)
-                try:
-                    response = requests.get(geocode_url)
-                    data = response.json()
-                    if data.get("results"):
-                        location = data["results"][0]["geometry"]["location"]
-                        x_coord = location.get("lat")
-                        y_coord = location.get("lng")
-                        print("Coordinates:", x_coord, y_coord)
-                    else:
-                        print("Geocoding failed:", data.get("status"))
-                except Exception as e:
-                    print("Geocoding request failed:", str(e))
+            # Parse city/state/pincode from third line
+            last_line = lines[2]
+            match = re.match(r"(.+),\s*([A-Z]{2})\s*(\d{5})", last_line)
+            if match:
+                city = match.group(1).strip()
+                state = match.group(2).strip()
+                pincode = match.group(3).strip()
 
             browser.close()
 
             return jsonify({
-                "show": show_name,
-                "venue_link": venue_link,
                 "address": {
                     "address_line_1": address_line_1,
                     "address_line_2": address_line_2,
                     "city": city,
                     "state": state,
                     "pincode": pincode
-                },
-                "x_coord": x_coord,
-                "y_coord": y_coord
+                }
             })
 
     except Exception as e:
-        print("Unhandled Exception:", str(e))
         return jsonify({"error": str(e)}), 500
