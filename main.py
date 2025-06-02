@@ -23,26 +23,22 @@ def get_address():
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-            # Get all divs that look like venue blocks
             venue_blocks = page.query_selector_all('div.col-sm-4.col-xs-6')
-
             venue_block = None
             for block in venue_blocks:
-                block_text = block.inner_text()
-                if "Venue" in block_text and "maps.google.com" in block.inner_html():
+                if "Venue" in block.inner_text() and "maps.google.com" in block.inner_html():
                     venue_block = block
                     break
 
             if not venue_block:
                 return jsonify({"error": "Venue block not found"}), 404
 
-            # Extract theatre name from <a>
+            # Theatre name and venue link
             theatre_el = venue_block.query_selector('a[href*="maps.google.com"]')
             address_line_1 = theatre_el.inner_text().strip() if theatre_el else ""
+            venue_link = theatre_el.get_attribute('href') if theatre_el else ""
 
-            # Get all lines of inner text
             lines = [line.strip().strip('"') for line in venue_block.inner_text().split('\n') if line.strip()]
-
             address_line_2 = lines[2] if len(lines) > 2 else ""
             city_line = lines[3] if len(lines) > 3 else ""
 
@@ -61,7 +57,8 @@ def get_address():
                     "address_line_2": address_line_2,
                     "city": city,
                     "state": state,
-                    "pincode": pincode
+                    "pincode": pincode,
+                    "venue_link": venue_link
                 }
             })
 
