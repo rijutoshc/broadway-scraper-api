@@ -5,7 +5,6 @@ import re
 import requests
 import os
 
-# Set your Google API Key here or as an environment variable
 GOOGLE_API_KEY = os.environ.get("GOOGLE_GEOCODING_API_KEY", "AIzaSyChZE0eDh14KYRXlZmWK3cXSbo94iW88-o")
 
 app = Flask(__name__)
@@ -29,11 +28,11 @@ def get_address():
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-            # Extract venue name
-            theatre_element = page.query_selector('#venue a')
-            theatre_name = theatre_element.inner_text().strip() if theatre_element else ""
+            # Extract theatre name
+            theatre_el = page.query_selector('#venue strong') or page.query_selector('#venue a')
+            theatre_name = theatre_el.inner_text().strip() if theatre_el else ""
 
-            # Extract Google Maps link
+            # Extract GMaps link
             link = page.query_selector('a[href*="maps.google.com"]')
             venue_link = link.get_attribute('href') if link else None
 
@@ -41,12 +40,12 @@ def get_address():
                 browser.close()
                 return jsonify({"error": "Venue link not found"}), 404
 
-            # Extract raw address from GMaps link
+            # Extract raw address
             parsed_url = urlparse(venue_link)
             query = parse_qs(parsed_url.query)
             raw_address = query.get('q', [None])[0]
 
-            # Default values
+            # Initialize fields
             address_line_1 = theatre_name
             address_line_2 = ''
             city = None
@@ -56,27 +55,31 @@ def get_address():
             y_coord = None
 
             if raw_address:
-                # Regex pattern: e.g., "200 West 45 Street New York,NY 10036"
-                match = re.match(r"(.+?)\s+([A-Za-z\s]+),([A-Z]{2})\s+(\d{5})", raw_address)
+                print("Raw address:", raw_address)
+                # Regex pattern to match "200 West 45 Street New York, NY 10036"
+                match = re.match(r"(.+?)\s+([A-Za-z\s]+),\s*([A-Z]{2})\s+(\d{5})", raw_address)
                 if match:
-                    address_line_2 = match.group(1).strip()         # e.g. 200 West 45 Street
-                    city = match.group(2).strip()                   # e.g. New York
-                    state = match.group(3).strip()                  # e.g. NY
-                    pincode = match.group(4).strip()                # e.g. 10036
+                    address_line_2 = match.group(1).strip()
+                    city = match.group(2).strip()
+                    state = match.group(3).strip()
+                    pincode = match.group(4).strip()
                 else:
                     address_line_2 = raw_address
 
-                # === Geocoding API to fetch coordinates ===
-                geocode_url = (
-                    f"https://maps.googleapis.com/maps/api/geocode/json?address={raw_address}&key={GOOGLE_API_KEY}"
-                )
-                response = requests.get(geocode_url)
-                if response.status_code == 200:
+                # Call Geocoding API
+                geocode_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={raw_address}&key={GOOGLE_API_KEY}"
+                print("Geocode URL:", geocode_url)
+                try:
+                    response = requests.get(geocode_url)
                     data = response.json()
                     if data.get("results"):
                         location = data["results"][0]["geometry"]["location"]
                         x_coord = location.get("lat")
                         y_coord = location.get("lng")
+                    else:
+                        print("Geocoding failed:", data.get("status"))
+                except Exception as e:
+                    print("Geocoding request failed:", str(e))
 
             browser.close()
 
@@ -95,4 +98,5 @@ def get_address():
             })
 
     except Exception as e:
+        print("Unhandled Exception:", str(e))
         return jsonify({"error": str(e)}), 500
